@@ -1,0 +1,65 @@
+{
+  "enabled": true,
+  "qualityPreferences": {
+    "torrentioQualityFilter": "other,scr,cam,unknown",
+    "torrentioSortBy": "qualitysize",
+    "minResolution": "720p",
+    "maxFileSizeGB": 100,
+    "minFileSizeGB": 5,
+    "preferredKeywords": [
+      "bluray",
+      "proper"
+    ],
+    "excludeKeywords": [
+      "remux",
+      "hdr",
+      "hdr10",
+      "hdr10plus",
+      "dolby vision",
+      "dv",
+      "cam",
+      "ts",
+      "hdts",
+      "hdcam",
+      "screener",
+      "scr",
+      "unknown"
+    ],
+    "preferredResolutions": [
+      "2160p",
+      "1080p",
+      "720p"
+    ],
+    "preferredCodecs": [
+      "x265",
+      "hevc",
+      "av1",
+      "x264"
+    ],
+    "requireHDR": false,
+    "requireRemux": false
+  },
+  "contentSources": {
+    "trakt": {
+      "enabled": true,
+      "lists": [],
+      "maxItemsPerList": 10,
+      "mediaTypes": ["movie", "show"],
+      "username": "zeroq",
+      "customLists": [
+        "zeroq/certified-fresh-on-stremio",
+        "zeroq/new-releases-on-stremio",
+        "zeroq/foreign-releases-on-stremio",
+        "zeroq/recommended-on-stremio",
+        "zeroq/trending-on-stremio",
+        "zeroq/based-on-watched-on-stremio"
+      ]
+    }
+  },
+  "limits": {
+    "maxTorrentsPerRun": 50,
+    "maxTorrentsPerTitle": 1
+  },
+  "dryRun": false,
+  "logLevel": "info"
+}

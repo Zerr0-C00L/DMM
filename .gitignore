@@ -45,6 +45,9 @@ temp/
 
 pscale_dump_dmm_main/
 
+# Auto-add logs
+logs/*.log
+
 *.sqlite
 
 src/pages/api/importers/yts.json

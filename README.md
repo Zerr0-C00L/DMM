@@ -26,6 +26,10 @@ You can see all your torrents in one page, sort them by name, by size, by "quali
 
 You can add more content to your library by searching the DHT (powered by BtDigg). It detects what you already have downloaded and currently downloading in your library too.
 
+### Auto-Add Quality Content (NEW!)
+
+Automatically add high-quality torrents to your Real-Debrid account daily via GitHub Actions. Configure your preferred quality settings (resolution, file size, HDR, REMUX, etc.) and let it fetch trending/popular content from Trakt. See [AUTO-ADD-SETUP.md](AUTO-ADD-SETUP.md) for setup instructions.
+
 ### Share your library and mirror other libraries
 
 You can share your whole collection or select specific items you want to share. Head over to [r/debridmediamanager](https://www.reddit.com/r/debridmediamanager/) and see other people's media collections and easily mirror their content to yours.

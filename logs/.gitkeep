@@ -1,0 +1,7 @@
+# Daily Auto-Add Quality Content
+
+This directory contains logs from the auto-add quality content script.
+
+Logs are organized by date: `auto-add-YYYY-MM-DD.log`
+
+These logs are automatically uploaded as GitHub Actions artifacts and kept for 30 days.
