@@ -60,6 +60,7 @@
     "maxTorrentsPerRun": 50,
     "maxTorrentsPerTitle": 1
   },
+  "upgradeExisting": true,
   "dryRun": false,
   "logLevel": "info"
 }

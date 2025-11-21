@@ -412,6 +412,91 @@ class AutoAddService {
 		}).sort((a, b) => b.score - a.score);
 	}
 
+	// Fetch existing torrents from Real-Debrid
+	async fetchRdTorrents() {
+		try {
+			const response = await axios.get(`${RD_API_URL}/rest/1.0/torrents`, {
+				headers: { 'Authorization': `Bearer ${this.rdApiKey}` },
+				timeout: 15000,
+			});
+			return response.data || [];
+		} catch (error) {
+			this.log(`Error fetching RD torrents: ${error.message}`, 'error');
+			return [];
+		}
+	}
+
+	// Delete torrent from Real-Debrid
+	async deleteRdTorrent(torrentId) {
+		if (this.config.dryRun) {
+			return true;
+		}
+
+		try {
+			await axios.delete(`${RD_API_URL}/rest/1.0/torrents/delete/${torrentId}`, {
+				headers: { 'Authorization': `Bearer ${this.rdApiKey}` },
+				timeout: 10000,
+			});
+			return true;
+		} catch (error) {
+			this.log(`Error deleting torrent ${torrentId}: ${error.message}`, 'error');
+			return false;
+		}
+	}
+
+	// Check if new torrent is better quality than existing
+	isBetterQuality(newTorrent, existingTorrent) {
+		// Parse existing torrent info
+		const existingTitle = existingTorrent.filename?.toLowerCase() || '';
+		const existingBytes = existingTorrent.bytes || 0;
+		
+		// Calculate scores for both
+		const newScore = this.calculateQualityScore(newTorrent.title, newTorrent.fileSize);
+		const existingScore = this.calculateQualityScore(existingTitle, existingBytes);
+		
+		return newScore > existingScore;
+	}
+
+	// Calculate quality score for comparison
+	calculateQualityScore(title, fileSize) {
+		const prefs = this.config.qualityPreferences;
+		const titleLower = title.toLowerCase();
+		let score = fileSize / (1024 ** 3); // Base score on file size in GB
+
+		// Bonus for resolution
+		if (titleLower.includes('2160p') || titleLower.includes('4k')) score += 100;
+		else if (titleLower.includes('1080p')) score += 50;
+		else if (titleLower.includes('720p')) score += 20;
+
+		// Bonus for preferred keywords
+		prefs.preferredKeywords?.forEach(kw => {
+			if (titleLower.includes(kw.toLowerCase())) score += 50;
+		});
+
+		// Bonus for preferred codecs
+		prefs.preferredCodecs?.forEach(codec => {
+			if (titleLower.includes(codec.toLowerCase())) score += 30;
+		});
+
+		return score;
+	}
+
+	// Find existing torrent by IMDB ID (fuzzy match by title/year)
+	findExistingTorrent(rdTorrents, item) {
+		const searchTitle = item.title.toLowerCase();
+		const searchYear = item.year;
+
+		for (const rdTorrent of rdTorrents) {
+			const rdTitle = rdTorrent.filename?.toLowerCase() || '';
+			
+			// Check if title matches (fuzzy)
+			if (rdTitle.includes(searchTitle.split(' ')[0]) && rdTitle.includes(String(searchYear))) {
+				return rdTorrent;
+			}
+		}
+		return null;
+	}
+
 	// Add magnet to Real-Debrid
 	async addMagnetToRd(hash) {
 		if (this.config.dryRun) {
@@ -526,6 +611,16 @@ class AutoAddService {
 
 			this.log(`Found ${items.length} items to process`);
 
+			// Fetch existing RD torrents for upgrade comparison (if enabled)
+			let rdTorrents = [];
+			if (this.config.upgradeExisting) {
+				this.log('Fetching existing Real-Debrid torrents for upgrade check...');
+				rdTorrents = await this.fetchRdTorrents();
+				this.log(`Found ${rdTorrents.length} existing torrents in RD`);
+			}
+
+			let upgradedCount = 0;
+
 			// 2. Process each item
 			for (const item of items) {
 				if (this.addedCount >= this.config.limits.maxTorrentsPerRun) {
@@ -534,6 +629,9 @@ class AutoAddService {
 				}
 
 				this.log(`Processing: ${item.title} (${item.year})`);
+
+				// Check if we already have this in RD
+				const existingTorrent = this.findExistingTorrent(rdTorrents, item);
 
 				// Search torrents
 				let torrents = await this.searchTorrentio(item.imdbId, item.type);
@@ -569,17 +667,38 @@ class AutoAddService {
 				const scored = this.scoreTorrents(torrents);
 				const best = scored.slice(0, this.config.limits.maxTorrentsPerTitle || 1);
 
-				// Add to RD
+				// Check if we should add or upgrade
 				for (const torrent of best) {
 					if (this.addedCount >= this.config.limits.maxTorrentsPerRun) break;
 
-					const action = this.config.dryRun ? '[DRY RUN] Would add' : 'Adding';
-					this.log(`  ${action}: ${torrent.title} (score: ${torrent.score.toFixed(1)})`);
+					if (existingTorrent) {
+						// Check if new torrent is better quality
+						if (this.isBetterQuality(torrent, existingTorrent)) {
+							const action = this.config.dryRun ? '[DRY RUN] Would upgrade' : 'Upgrading';
+							this.log(`  ${action}: ${torrent.title} (score: ${torrent.score.toFixed(1)})`);
+							this.log(`    Old: ${existingTorrent.filename} (${(existingTorrent.bytes / (1024**3)).toFixed(2)} GB)`);
 
-					const success = await this.addMagnetToRd(torrent.hash);
-					if (success) {
-						this.addedCount++;
-						this.log(`  ✓ Added successfully`, 'success');
+							const success = await this.addMagnetToRd(torrent.hash);
+							if (success) {
+								// Delete old torrent
+								await this.deleteRdTorrent(existingTorrent.id);
+								this.addedCount++;
+								upgradedCount++;
+								this.log(`  ✓ Upgraded successfully`, 'success');
+							}
+						} else {
+							this.log(`  Already have good quality, skipping`);
+						}
+					} else {
+						// Add new torrent
+						const action = this.config.dryRun ? '[DRY RUN] Would add' : 'Adding';
+						this.log(`  ${action}: ${torrent.title} (score: ${torrent.score.toFixed(1)})`);
+
+						const success = await this.addMagnetToRd(torrent.hash);
+						if (success) {
+							this.addedCount++;
+							this.log(`  ✓ Added successfully`, 'success');
+						}
 					}
 
 					// Longer rate limiting delay to avoid 429 errors
@@ -587,7 +706,7 @@ class AutoAddService {
 				}
 			}
 
-			this.log(`=== Completed: ${this.addedCount} torrents added ===`);
+			this.log(`=== Completed: ${this.addedCount} torrents added (${upgradedCount} upgrades) ===`);
 		} catch (error) {
 			this.log(`Fatal error: ${error.message}`, 'error');
 			console.error(error);
