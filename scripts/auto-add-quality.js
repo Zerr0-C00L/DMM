@@ -238,24 +238,47 @@ class AutoAddService {
 		if (hashes.length === 0) return {};
 
 		try {
-			// Process in batches of 100
-			const batchSize = 100;
+			// Process in smaller batches to avoid rate limits
+			const batchSize = 50; // Reduced from 100
 			const availability = {};
 
 			for (let i = 0; i < hashes.length; i += batchSize) {
 				const batch = hashes.slice(i, i + batchSize);
 				const url = `${RD_API_URL}/rest/1.0/torrents/instantAvailability/${batch.join('/')}`;
 				
-				const response = await axios.get(url, {
-					headers: { 'Authorization': `Bearer ${this.rdApiKey}` },
-					timeout: 15000,
-				});
+				let retries = 0;
+				const maxRetries = 3;
+				let success = false;
 
-				Object.assign(availability, response.data);
+				while (retries < maxRetries && !success) {
+					try {
+						const response = await axios.get(url, {
+							headers: { 'Authorization': `Bearer ${this.rdApiKey}` },
+							timeout: 15000,
+						});
+
+						Object.assign(availability, response.data);
+						success = true;
+					} catch (err) {
+						if (err.response?.status === 429) {
+							// Rate limited - wait longer
+							const waitTime = Math.pow(2, retries) * 2000; // 2s, 4s, 8s
+							this.log(`Rate limited, waiting ${waitTime/1000}s before retry ${retries+1}/${maxRetries}...`, 'warn');
+							await new Promise(resolve => setTimeout(resolve, waitTime));
+							retries++;
+						} else {
+							throw err;
+						}
+					}
+				}
+
+				if (!success) {
+					this.log(`Failed to check batch after ${maxRetries} retries, skipping...`, 'error');
+				}
 				
-				// Small delay between batches
+				// Longer delay between batches to avoid rate limits
 				if (i + batchSize < hashes.length) {
-					await new Promise(resolve => setTimeout(resolve, 300));
+					await new Promise(resolve => setTimeout(resolve, 1000)); // Increased from 300ms
 				}
 			}
 
@@ -324,41 +347,58 @@ class AutoAddService {
 			return true;
 		}
 
-		try {
-			const magnet = `magnet:?xt=urn:btih:${hash}`;
-			const response = await axios.post(
-				`${RD_API_URL}/rest/1.0/torrents/addMagnet`,
-				`magnet=${encodeURIComponent(magnet)}`,
-				{
-					headers: {
-						'Authorization': `Bearer ${this.rdApiKey}`,
-						'Content-Type': 'application/x-www-form-urlencoded',
-					},
-					timeout: 15000,
-				}
-			);
+		let retries = 0;
+		const maxRetries = 3;
 
-			if (response.status === 201 && response.data.id) {
-				// Select all files
-				const torrentId = response.data.id;
-				await axios.post(
-					`${RD_API_URL}/rest/1.0/torrents/selectFiles/${torrentId}`,
-					'files=all',
+		while (retries < maxRetries) {
+			try {
+				const magnet = `magnet:?xt=urn:btih:${hash}`;
+				const response = await axios.post(
+					`${RD_API_URL}/rest/1.0/torrents/addMagnet`,
+					`magnet=${encodeURIComponent(magnet)}`,
 					{
 						headers: {
 							'Authorization': `Bearer ${this.rdApiKey}`,
 							'Content-Type': 'application/x-www-form-urlencoded',
 						},
-						timeout: 10000,
+						timeout: 15000,
 					}
 				);
-				return true;
+
+				if (response.status === 201 && response.data.id) {
+					// Select all files with retry
+					const torrentId = response.data.id;
+					await new Promise(resolve => setTimeout(resolve, 500)); // Small delay before selecting files
+					
+					await axios.post(
+						`${RD_API_URL}/rest/1.0/torrents/selectFiles/${torrentId}`,
+						'files=all',
+						{
+							headers: {
+								'Authorization': `Bearer ${this.rdApiKey}`,
+								'Content-Type': 'application/x-www-form-urlencoded',
+							},
+							timeout: 10000,
+						}
+					);
+					return true;
+				}
+				return false;
+			} catch (error) {
+				if (error.response?.status === 429) {
+					const waitTime = Math.pow(2, retries) * 2000;
+					this.log(`Rate limited adding magnet, waiting ${waitTime/1000}s...`, 'warn');
+					await new Promise(resolve => setTimeout(resolve, waitTime));
+					retries++;
+				} else {
+					this.log(`Error adding magnet: ${error.message}`, 'error');
+					return false;
+				}
 			}
-			return false;
-		} catch (error) {
-			this.log(`Error adding magnet: ${error.message}`, 'error');
-			return false;
 		}
+
+		this.log(`Failed to add magnet after ${maxRetries} retries`, 'error');
+		return false;
 	}
 
 	// Main execution
@@ -463,8 +503,8 @@ class AutoAddService {
 						this.log(`  ✓ Added successfully`, 'success');
 					}
 
-					// Rate limiting
-					await new Promise(resolve => setTimeout(resolve, 500));
+					// Longer rate limiting delay to avoid 429 errors
+					await new Promise(resolve => setTimeout(resolve, 1500)); // Increased from 500ms
 				}
 			}
 
