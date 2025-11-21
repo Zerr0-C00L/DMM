@@ -57,7 +57,7 @@
     }
   },
   "limits": {
-    "maxTorrentsPerRun": 50,
+    "maxTorrentsPerRun": 200,
     "maxTorrentsPerTitle": 1
   },
   "upgradeExisting": true,
