@@ -238,8 +238,10 @@ class AutoAddService {
 			}
 
 			return response.data.streams.map(stream => {
-				const match = stream.title.match(/\n([^\n]+)\n💾 ([\d.]+\s*[KMGT]?B)/);
-				const title = match ? match[1] : stream.title;
+				// Try to extract title and size from the multi-line format
+				// Format: "Title\n👤 seeders 💾 size ⚙️ tracker"
+				const match = stream.title.match(/(.+?)\n.*?💾\s*([\d.]+\s*[KMGT]?B)/);
+				const title = match ? match[1].trim() : stream.title;
 				const sizeStr = match ? match[2] : '0';
 				
 				// Parse size to bytes
