@@ -68,8 +68,7 @@ function hasPreferredCodec(title: string, preferredCodecs?: string[]): boolean {
 		const codecLower = codec.toLowerCase();
 		// Check for codec in title with word boundaries or common separators
 		return (
-			lowerTitle.includes(codecLower) ||
-			lowerTitle.includes(codecLower.replace('x', 'h.'))
+			lowerTitle.includes(codecLower) || lowerTitle.includes(codecLower.replace('x', 'h.'))
 		);
 	});
 }
@@ -80,9 +79,7 @@ function hasPreferredResolution(title: string, preferredResolutions?: string[]):
 	const titleResolution = getResolutionFromTitle(title);
 	if (!titleResolution) return false;
 
-	return preferredResolutions.some(
-		(res) => res.toLowerCase() === titleResolution.toLowerCase()
-	);
+	return preferredResolutions.some((res) => res.toLowerCase() === titleResolution.toLowerCase());
 }
 
 /**
@@ -107,7 +104,13 @@ export function filterByQualityPreferences(
 		}
 
 		// Check file size requirements
-		if (!meetsFileSizeRequirement(fileSize, preferences.minFileSizeGB, preferences.maxFileSizeGB)) {
+		if (
+			!meetsFileSizeRequirement(
+				fileSize,
+				preferences.minFileSizeGB,
+				preferences.maxFileSizeGB
+			)
+		) {
 			return false;
 		}
 

@@ -1,9 +1,9 @@
-import { getTraktTrending, getTraktPopular } from '@/services/trakt';
 import { SearchResult } from '@/services/mediasearch';
-import { handleAddAsMagnetInRd } from '@/utils/addMagnet';
-import { getBestQualityTorrents, QualityPreferences } from '@/utils/qualityFilter';
-import { instantCheckInRd } from '@/utils/instantChecks';
 import { scrapeTorrentio } from '@/services/torrentio';
+import { getTraktPopular, getTraktTrending } from '@/services/trakt';
+import { handleAddAsMagnetInRd } from '@/utils/addMagnet';
+import { instantCheckInRd } from '@/utils/instantChecks';
+import { getBestQualityTorrents, QualityPreferences } from '@/utils/qualityFilter';
 import fs from 'fs';
 import path from 'path';
 
@@ -44,7 +44,7 @@ export class AutoAddService {
 
 	constructor(rdApiKey: string, configPath: string = './quality-preferences.json') {
 		this.rdApiKey = rdApiKey;
-		
+
 		// Load config
 		const configFile = fs.readFileSync(configPath, 'utf-8');
 		this.config = JSON.parse(configFile);
@@ -60,7 +60,7 @@ export class AutoAddService {
 	private log(message: string, level: string = 'info') {
 		const timestamp = new Date().toISOString();
 		const logMessage = `[${timestamp}] [${level.toUpperCase()}] ${message}\n`;
-		
+
 		console.log(logMessage.trim());
 		fs.appendFileSync(this.logFile, logMessage);
 	}
@@ -84,9 +84,15 @@ export class AutoAddService {
 
 					let content: any[] = [];
 					if (listType === 'trending') {
-						content = await getTraktTrending(mediaType as 'movie' | 'show', maxItemsPerList);
+						content = await getTraktTrending(
+							mediaType as 'movie' | 'show',
+							maxItemsPerList
+						);
 					} else if (listType === 'popular') {
-						content = await getTraktPopular(mediaType as 'movie' | 'show', maxItemsPerList);
+						content = await getTraktPopular(
+							mediaType as 'movie' | 'show',
+							maxItemsPerList
+						);
 					}
 
 					for (const item of content.slice(0, maxItemsPerList)) {
@@ -117,12 +123,12 @@ export class AutoAddService {
 	private async searchTorrents(item: MediaItem): Promise<SearchResult[]> {
 		try {
 			this.log(`Searching torrents for: ${item.title} (${item.year})`);
-			
+
 			// Use Torrentio to search
 			const results = await scrapeTorrentio(item.imdbId, item.type);
-			
+
 			// Convert to SearchResult format
-			const searchResults: SearchResult[] = results.map(r => ({
+			const searchResults: SearchResult[] = results.map((r) => ({
 				title: r.title,
 				fileSize: r.fileSize,
 				hash: r.hash,
@@ -152,8 +158,8 @@ export class AutoAddService {
 		if (torrents.length === 0) return [];
 
 		try {
-			const hashes = torrents.map(t => t.hash);
-			
+			const hashes = torrents.map((t) => t.hash);
+
 			// This will mutate the torrents array to set rdAvailable flag
 			await instantCheckInRd(
 				'', // dmmProblemKey - not needed for this use case
@@ -171,7 +177,7 @@ export class AutoAddService {
 				(results) => results // no sorting needed
 			);
 
-			const availableCount = torrents.filter(t => t.rdAvailable).length;
+			const availableCount = torrents.filter((t) => t.rdAvailable).length;
 			this.log(`${availableCount}/${torrents.length} torrents are instantly available`);
 		} catch (error) {
 			this.log(`Error checking availability: ${error}`, 'error');
@@ -218,7 +224,7 @@ export class AutoAddService {
 		try {
 			// 1. Fetch content from sources
 			const mediaItems = await this.fetchTraktContent();
-			
+
 			if (mediaItems.length === 0) {
 				this.log('No content found to process. Exiting.');
 				return;
@@ -253,11 +259,11 @@ export class AutoAddService {
 				// Add to Real-Debrid
 				for (const torrent of qualityTorrents) {
 					if (this.addedCount >= this.config.limits.maxTorrentsPerRun) break;
-					
+
 					await this.addToRealDebrid(torrent.hash, `${item.title} - ${torrent.title}`);
-					
+
 					// Small delay to avoid rate limiting
-					await new Promise(resolve => setTimeout(resolve, 500));
+					await new Promise((resolve) => setTimeout(resolve, 500));
 				}
 			}
 

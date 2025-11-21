@@ -11,19 +11,12 @@
       "proper"
     ],
     "excludeKeywords": [
-      "remux",
-      "hdr",
-      "hdr10",
-      "hdr10plus",
-      "dolby vision",
-      "dv",
       "cam",
       "ts",
       "hdts",
       "hdcam",
       "screener",
-      "scr",
-      "unknown"
+      "scr"
     ],
     "preferredResolutions": [
       "2160p",

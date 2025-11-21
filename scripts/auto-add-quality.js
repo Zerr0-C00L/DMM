@@ -340,21 +340,47 @@ class AutoAddService {
 			const title = t.title.toLowerCase();
 			const fileSizeGB = t.fileSize / (1024 ** 3);
 
+			// Debug log first few titles
+			if (torrents.indexOf(t) < 3) {
+				this.log(`    Checking torrent: "${t.title}" (${fileSizeGB.toFixed(2)} GB)`);
+			}
+
 			// Exclude bad quality
 			if (prefs.excludeKeywords?.some(kw => title.includes(kw.toLowerCase()))) {
+				if (torrents.indexOf(t) < 3) {
+					this.log(`    ✗ Excluded by keyword`);
+				}
 				return false;
 			}
 
 			// Check file size
-			if (prefs.minFileSizeGB && fileSizeGB < prefs.minFileSizeGB) return false;
-			if (prefs.maxFileSizeGB && fileSizeGB > prefs.maxFileSizeGB) return false;
+			if (prefs.minFileSizeGB && fileSizeGB < prefs.minFileSizeGB) {
+				if (torrents.indexOf(t) < 3) {
+					this.log(`    ✗ Too small (< ${prefs.minFileSizeGB} GB)`);
+				}
+				return false;
+			}
+			if (prefs.maxFileSizeGB && fileSizeGB > prefs.maxFileSizeGB) {
+				if (torrents.indexOf(t) < 3) {
+					this.log(`    ✗ Too large (> ${prefs.maxFileSizeGB} GB)`);
+				}
+				return false;
+			}
 
 			// Check resolution
 			const hasResolution = prefs.preferredResolutions?.some(res => 
 				title.includes(res.toLowerCase())
 			);
-			if (prefs.preferredResolutions?.length && !hasResolution) return false;
+			if (prefs.preferredResolutions?.length && !hasResolution) {
+				if (torrents.indexOf(t) < 3) {
+					this.log(`    ✗ No preferred resolution found (looking for: ${prefs.preferredResolutions.join(', ')})`);
+				}
+				return false;
+			}
 
+			if (torrents.indexOf(t) < 3) {
+				this.log(`    ✓ Passed quality check`);
+			}
 			return true;
 		});
 	}

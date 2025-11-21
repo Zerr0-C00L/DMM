@@ -1,0 +1,47 @@
+{
+  "enabled": true,
+  "schedule": "0 2 * * *",
+  "realDebridApiKey": "",
+  "qualityPreferences": {
+    "minResolution": "1080p",
+    "maxFileSize": 100,
+    "minFileSize": 5,
+    "preferredKeywords": [
+      "remux",
+      "bluray",
+      "hdr",
+      "dv",
+      "dolby vision",
+      "hdr10plus"
+    ],
+    "excludeKeywords": [
+      "cam",
+      "ts",
+      "hdts",
+      "hdcam",
+      "screener",
+      "scr"
+    ],
+    "preferredResolutions": [
+      "2160p",
+      "1080p"
+    ],
+    "preferredCodecs": [
+      "x265",
+      "hevc",
+      "av1"
+    ]
+  },
+  "contentSources": [
+    {
+      "type": "trakt",
+      "lists": [
+        "trending",
+        "popular"
+      ],
+      "maxItems": 20
+    }
+  ],
+  "dryRun": false,
+  "notifyOnAdd": true
+}
