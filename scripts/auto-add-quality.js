@@ -279,7 +279,8 @@ class AutoAddService {
 
 			for (let i = 0; i < hashes.length; i += batchSize) {
 				const batch = hashes.slice(i, i + batchSize);
-				const url = `${RD_API_URL}/rest/1.0/torrents/instantAvailability/${batch.join('/')}`;
+				// Use the exact format from the working RD service
+				const url = `https://api.real-debrid.com/rest/1.0/torrents/instantAvailability/${batch.join('/')}`;
 				
 				let retries = 0;
 				const maxRetries = 3;
@@ -289,8 +290,7 @@ class AutoAddService {
 					try {
 						const response = await axios.get(url, {
 							headers: { 
-								'Authorization': `Bearer ${this.rdApiKey}`,
-								'User-Agent': 'DMM-Auto-Add/1.0'
+								'Authorization': `Bearer ${this.rdApiKey}`
 							},
 							timeout: 15000,
 						});
@@ -304,13 +304,18 @@ class AutoAddService {
 							this.log(`Rate limited, waiting ${waitTime/1000}s before retry ${retries+1}/${maxRetries}...`, 'warn');
 							await new Promise(resolve => setTimeout(resolve, waitTime));
 							retries++;
+						} else if (err.response?.status === 403) {
+							// 403 on instant availability - might be endpoint issue
+							this.log(`RD instant availability check blocked (403). This can happen with free accounts or API restrictions.`, 'warn');
+							this.log(`Skipping availability check - will try to add torrents directly`, 'warn');
+							return {}; // Return empty to skip cached check
 						} else {
 							throw err;
 						}
 					}
 				}
 
-				if (!success) {
+				if (!success && retries >= maxRetries) {
 					this.log(`Failed to check batch after ${maxRetries} retries, skipping...`, 'error');
 				}
 				
@@ -322,12 +327,7 @@ class AutoAddService {
 
 			return availability;
 		} catch (error) {
-			if (error.response?.status === 403) {
-				this.log(`RD API returned 403 Forbidden. Your API key may be invalid or expired.`, 'error');
-				this.log(`Please check your REAL_DEBRID_API_KEY at: https://real-debrid.com/apitoken`, 'error');
-			} else {
-				this.log(`Error checking RD availability: ${error.message}`, 'error');
-			}
+			this.log(`Error checking RD availability: ${error.message}`, 'error');
 			return {};
 		}
 	}
@@ -516,12 +516,20 @@ class AutoAddService {
 				// Check availability
 				const hashes = torrents.map(t => t.hash);
 				const availability = await this.checkRdAvailability(hashes);
-				torrents.forEach(t => {
-					t.rdAvailable = !!availability[t.hash];
-				});
-
-				const cachedCount = torrents.filter(t => t.rdAvailable).length;
-				this.log(`  ${cachedCount} torrents are cached`);
+				
+				// If availability check failed/blocked, mark all as available to try adding them
+				const availabilityCheckFailed = Object.keys(availability).length === 0 && hashes.length > 0;
+				if (availabilityCheckFailed) {
+					this.log(`  Availability check unavailable - will try adding torrents directly`);
+					// Mark all as "available" so we try to add them
+					torrents.forEach(t => { t.rdAvailable = true; });
+				} else {
+					torrents.forEach(t => {
+						t.rdAvailable = !!availability[t.hash];
+					});
+					const cachedCount = torrents.filter(t => t.rdAvailable).length;
+					this.log(`  ${cachedCount} torrents are cached`);
+				}
 
 				// Filter by quality
 				torrents = this.filterByQuality(torrents);
