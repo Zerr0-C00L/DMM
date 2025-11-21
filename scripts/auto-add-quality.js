@@ -26,6 +26,20 @@ class AutoAddService {
 			throw new Error('REAL_DEBRID_API_KEY environment variable is required');
 		}
 
+		// Validate API key format
+		if (this.rdApiKey.length < 20) {
+			throw new Error('REAL_DEBRID_API_KEY appears to be invalid (too short)');
+		}
+		
+		console.log(`Using RD API Key: ${this.rdApiKey.substring(0, 10)}...${this.rdApiKey.substring(this.rdApiKey.length - 4)}`);
+		console.log(`RD API Key length: ${this.rdApiKey.length}`);
+		if (this.traktClientId) {
+			console.log(`Using Trakt Client ID: ${this.traktClientId.substring(0, 10)}...`);
+		}
+
+		// Test RD API key on startup
+		this.testRdApiKey();
+
 		// Load config
 		const configPath = path.join(process.cwd(), 'quality-preferences.json');
 		const configFile = fs.readFileSync(configPath, 'utf-8');
@@ -46,6 +60,27 @@ class AutoAddService {
 		
 		console.log(logMessage.trim());
 		fs.appendFileSync(this.logFile, logMessage);
+	}
+
+	// Test RD API key
+	async testRdApiKey() {
+		try {
+			console.log('Testing Real-Debrid API key...');
+			const response = await axios.get(`${RD_API_URL}/rest/1.0/user`, {
+				headers: { 
+					'Authorization': `Bearer ${this.rdApiKey}`,
+					'User-Agent': 'DMM-Auto-Add/1.0'
+				},
+				timeout: 10000,
+			});
+			console.log(`✓ RD API key valid! User: ${response.data.username} (Premium: ${response.data.premium})`);
+		} catch (error) {
+			console.error(`✗ RD API key test failed: ${error.response?.status} ${error.response?.statusText}`);
+			if (error.response?.status === 403) {
+				console.error('The API key is invalid or expired. Get a new one from: https://real-debrid.com/apitoken');
+			}
+			throw new Error('Real-Debrid API key validation failed');
+		}
 	}
 
 	// Fetch trending content from Trakt
@@ -253,7 +288,10 @@ class AutoAddService {
 				while (retries < maxRetries && !success) {
 					try {
 						const response = await axios.get(url, {
-							headers: { 'Authorization': `Bearer ${this.rdApiKey}` },
+							headers: { 
+								'Authorization': `Bearer ${this.rdApiKey}`,
+								'User-Agent': 'DMM-Auto-Add/1.0'
+							},
 							timeout: 15000,
 						});
 
@@ -284,7 +322,12 @@ class AutoAddService {
 
 			return availability;
 		} catch (error) {
-			this.log(`Error checking RD availability: ${error.message}`, 'error');
+			if (error.response?.status === 403) {
+				this.log(`RD API returned 403 Forbidden. Your API key may be invalid or expired.`, 'error');
+				this.log(`Please check your REAL_DEBRID_API_KEY at: https://real-debrid.com/apitoken`, 'error');
+			} else {
+				this.log(`Error checking RD availability: ${error.message}`, 'error');
+			}
 			return {};
 		}
 	}
