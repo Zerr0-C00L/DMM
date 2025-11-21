@@ -11,6 +11,13 @@
       "proper"
     ],
     "excludeKeywords": [
+      "hdr",
+      "hdr10",
+      "hdr10+",
+      "hdr10plus",
+      "dolby vision",
+      "dv",
+      "remux",
       "cam",
       "ts",
       "hdts",
