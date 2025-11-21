@@ -348,9 +348,10 @@ class AutoAddService {
 			}
 
 			// Exclude bad quality
-			if (prefs.excludeKeywords?.some(kw => title.includes(kw.toLowerCase()))) {
+			const matchedKeyword = prefs.excludeKeywords?.find(kw => title.includes(kw.toLowerCase()));
+			if (matchedKeyword) {
 				if (torrents.indexOf(t) < 3) {
-					this.log(`    ✗ Excluded by keyword`);
+					this.log(`    ✗ Excluded by keyword: "${matchedKeyword}"`);
 				}
 				return false;
 			}
