@@ -440,6 +440,11 @@ class AutoAddService {
 			});
 			return true;
 		} catch (error) {
+			// If torrent already deleted (404), that's fine - continue
+			if (error.response?.status === 404) {
+				this.log(`Torrent ${torrentId} already deleted`, 'info');
+				return true;
+			}
 			this.log(`Error deleting torrent ${torrentId}: ${error.message}`, 'error');
 			return false;
 		}
@@ -490,8 +495,15 @@ class AutoAddService {
 		for (const rdTorrent of rdTorrents) {
 			const rdTitle = rdTorrent.filename?.toLowerCase() || '';
 			
-			// Check if title matches (fuzzy)
-			if (rdTitle.includes(searchTitle.split(' ')[0]) && rdTitle.includes(String(searchYear))) {
+			// Extract significant words from search title (ignore "the", "a", etc.)
+			const words = searchTitle.split(' ').filter(w => !['the', 'a', 'an', 'of'].includes(w));
+			
+			// Require at least first 2 significant words to match (or all words if only 1-2)
+			const wordsToMatch = words.slice(0, Math.min(2, words.length));
+			const hasAllWords = wordsToMatch.every(word => rdTitle.includes(word));
+			
+			// Check if title words and year both match
+			if (hasAllWords && rdTitle.includes(String(searchYear))) {
 				return rdTorrent;
 			}
 		}
