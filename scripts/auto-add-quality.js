@@ -684,25 +684,24 @@ class AutoAddService {
 				for (const torrent of best) {
 					if (this.addedCount >= this.config.limits.maxTorrentsPerRun) break;
 
-					if (existingTorrent) {
-						// Check if new torrent is better quality
-						if (this.isBetterQuality(torrent, existingTorrent)) {
-							const action = this.config.dryRun ? '[DRY RUN] Would upgrade' : 'Upgrading';
-							this.log(`  ${action}: ${torrent.title} (score: ${torrent.score.toFixed(1)})`);
-							this.log(`    Old: ${existingTorrent.filename} (${(existingTorrent.bytes / (1024**3)).toFixed(2)} GB)`);
+				if (existingTorrent) {
+					// Check if new torrent is better quality
+					if (this.isBetterQuality(torrent, existingTorrent)) {
+						const action = this.config.dryRun ? '[DRY RUN] Would upgrade' : 'Upgrading';
+						this.log(`  ${action}: ${torrent.title} (score: ${torrent.score.toFixed(1)})`);
+						this.log(`    Existing: ${existingTorrent.filename} (${(existingTorrent.bytes / (1024**3)).toFixed(2)} GB)`);
 
-							const success = await this.addMagnetToRd(torrent.hash);
-							if (success) {
-								// Delete old torrent
-								await this.deleteRdTorrent(existingTorrent.id);
-								this.addedCount++;
-								upgradedCount++;
-								this.log(`  ✓ Upgraded successfully`, 'success');
-							}
-						} else {
-							this.log(`  Already have good quality, skipping`);
+						const success = await this.addMagnetToRd(torrent.hash);
+						if (success) {
+							// Keep old torrent, just add the new better quality one
+							this.addedCount++;
+							upgradedCount++;
+							this.log(`  ✓ Added better quality (kept existing)`, 'success');
 						}
 					} else {
+						this.log(`  Already have good quality, skipping`);
+					}
+				} else {
 						// Add new torrent
 						const action = this.config.dryRun ? '[DRY RUN] Would add' : 'Adding';
 						this.log(`  ${action}: ${torrent.title} (score: ${torrent.score.toFixed(1)})`);
