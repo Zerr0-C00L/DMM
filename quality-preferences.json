@@ -44,7 +44,7 @@
       "enabled": true,
       "lists": [],
       "maxItemsPerList": 10,
-      "mediaTypes": ["movie", "show"],
+      "mediaTypes": ["show"],
       "username": "zeroq",
       "customLists": [
         "zeroq/certified-fresh-on-stremio",
